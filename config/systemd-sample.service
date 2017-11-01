@@ -1,0 +1,12 @@
+[Unit]
+Description=qs.sartak.org
+After=network.target
+
+[Service]
+Environment=QS_DATABASE_PORT=7008
+ExecStart=/usr/bin/twiggy -Ilib
+WorkingDirectory=/home/shawn/devel/qs-database-server/
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
