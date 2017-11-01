@@ -1,9 +1,14 @@
 use strict;
 use warnings;
+use Twiggy::Server;
 use Plack::Request;
 
+my $server = Twiggy::Server->new(
+    port => ($ENV{QS_DATABASE_PORT} or die "QS_DATABASE_PORT env var required"),
+);
+
 my @events;
-return sub {
+my $app = sub {
     my $request = Plack::Request->new(shift);
     if (my $event = $request->parameters->{event}) {
         push @events, [$event, time];
@@ -16,3 +21,6 @@ return sub {
     ] ];
 };
 
+$server->register_service($app);
+
+AE::cv->recv;
