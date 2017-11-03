@@ -18,3 +18,7 @@ CREATE TABLE event_types (
     tags TEXT,
 );
 
+CREATE TABLE IF NOT EXISTS user (
+    name TEXT NOT NULL,
+    password TEXT NOT NULL,
+);
