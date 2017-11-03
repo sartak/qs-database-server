@@ -8,17 +8,17 @@ CREATE TABLE events (
     isDiscrete BOOL,
     isStart BOOL,
     otherEndpoint INTEGER NOT NULL,
-    duration INTEGER NOT NULL,
+    duration INTEGER NOT NULL
 );
 
 CREATE TABLE event_types (
     id INTEGER NOT NULL,
     parent INTEGER NOT NULL,
     label TEXT,
-    tags TEXT,
+    tags TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user (
     name TEXT NOT NULL,
-    password TEXT NOT NULL,
+    password TEXT NOT NULL
 );
