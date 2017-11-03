@@ -1,5 +1,5 @@
 CREATE TABLE events (
-    id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp INTEGER NOT NULL,
     type INTEGER NOT NULL,
     uri TEXT,
@@ -12,13 +12,13 @@ CREATE TABLE events (
 );
 
 CREATE TABLE event_types (
-    id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY,
     parent INTEGER NOT NULL,
     label TEXT,
     tags TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user (
-    name TEXT NOT NULL,
+    name TEXT PRIMARY KEY,
     password TEXT NOT NULL
 );
