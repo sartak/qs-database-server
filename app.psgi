@@ -13,6 +13,7 @@ my $dbh = DBI->connect("dbi:SQLite:dbname=$db_file", "", "");
 
 my $app = sub {
     my $request = Plack::Request->new(shift);
+    return [200, ['Content-Type', 'text/plain'], ['test']];
 };
 
 use Plack::Builder;
