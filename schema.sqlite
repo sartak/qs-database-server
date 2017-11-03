@@ -3,7 +3,7 @@ CREATE TABLE events (
     timestamp INTEGER NOT NULL,
     type INTEGER NOT NULL,
     uri TEXT,
-    metadata TEXT, // json
+    metadata TEXT, -- json
 
     isDiscrete BOOL,
     isStart BOOL,
