@@ -18,6 +18,9 @@ my @all_fields = qw/timestamp type uri metadata isDiscrete isStart otherEndpoint
 my @required_fields = qw/timestamp type isDiscrete/;
 my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
 
+my $listall_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events ORDER BY events.timestamp DESC LIMIT ?;");
+my $list_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events JOIN event_types ON events.type = event_types.id WHERE event_types.materialized_path LIKE (SELECT (materialized_path || '%') FROM event_types WHERE id=?) ORDER BY events.timestamp DESC LIMIT ?;");
+
 use Plack::Builder;
 my $app = builder {
     enable "+QS::Middleware::Auth", dbh => $dbh;
@@ -78,6 +81,27 @@ my $app = builder {
 
         return [200, ['Content-Type', 'application/json'], [
             to_json(\%tree),
+        ]];
+    };
+
+    mount "/events" => sub {
+        my $req = Plack::Request->new(shift);
+        my $sth = $listall_sth;
+        if (my $type = $req->param('type')) {
+            $sth = $list_sth;
+            $sth->execute($type, 10);
+        }
+        else {
+            $sth->execute(10);
+        }
+
+        my @results;
+        while (my $row = $sth->fetchrow_hashref) {
+            push @results, $row;
+        }
+
+        return [200, ['Content-Type', 'application/json'], [
+            to_json(\@results),
         ]];
     };
 };
