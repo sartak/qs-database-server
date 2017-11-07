@@ -4,6 +4,7 @@ use Twiggy::Server;
 use Plack::Request;
 use Plack::App::File;
 use DBI;
+use JSON 'to_json';
 
 my $server = Twiggy::Server->new(
     port => ($ENV{QS_DATABASE_PORT} or die "QS_DATABASE_PORT env var required"),
@@ -52,6 +53,31 @@ my $app = builder {
         else {
             return [400];
         }
+    };
+
+    mount "/types" => sub {
+        my @types = $dbh->selectall_array("SELECT id, parent, label, tags FROM event_types;");
+        my %tree;
+        my @parents = [0, \%tree];
+        while (@parents) {
+            my ($parent_id, $parent_tree) = @{ shift @parents };
+            my @children = grep { $_->[1] == $parent_id } @types;
+            @types = grep { $_->[1] != $parent_id } @types;
+
+            for (@children) {
+                my ($id, undef, $label, $tags) = @$_;
+                my %subtree = (
+                    label => $label,
+                    tags => $tags,
+                );
+                $parent_tree->{$id} = \%subtree;
+                push @parents, [$id, \%subtree];
+            }
+        }
+
+        return [200, ['Content-Type', 'application/json'], [
+            to_json(\%tree),
+        ]];
     };
 };
 
