@@ -56,7 +56,7 @@ my $app = builder {
     };
 
     mount "/types" => sub {
-        my @types = $dbh->selectall_array("SELECT id, parent, label, tags FROM event_types;");
+        my @types = $dbh->selectall_array("SELECT id, parent, label, tags, materialized_path FROM event_types;");
         my %tree;
         my @parents = [0, \%tree];
         while (@parents) {
@@ -65,10 +65,11 @@ my $app = builder {
             @types = grep { $_->[1] != $parent_id } @types;
 
             for (@children) {
-                my ($id, undef, $label, $tags) = @$_;
+                my ($id, undef, $label, $tags, $materialized_path) = @$_;
                 my %subtree = (
                     label => $label,
                     tags => $tags,
+                    materialized_path => $materialized_path,
                 );
                 $parent_tree->{$id} = \%subtree;
                 push @parents, [$id, \%subtree];

@@ -14,6 +14,7 @@ CREATE TABLE events (
 CREATE TABLE event_types (
     id INTEGER PRIMARY KEY,
     parent INTEGER NOT NULL,
+    materialized_path TEXT NOT NULL,
     label TEXT,
     tags TEXT
 );
