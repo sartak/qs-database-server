@@ -2,13 +2,13 @@ CREATE TABLE events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp INTEGER NOT NULL,
     type INTEGER NOT NULL,
-    uri TEXT UNIQUE NOT NULL,
+    uri TEXT UNIQUE,
     metadata TEXT, -- json
 
-    isDiscrete BOOL,
+    isDiscrete BOOL NOT NULL,
     isStart BOOL,
-    otherEndpoint INTEGER NOT NULL,
-    duration INTEGER NOT NULL
+    otherEndpoint INTEGER,
+    duration INTEGER
 );
 
 CREATE TABLE event_types (
