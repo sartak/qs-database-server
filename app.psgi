@@ -21,6 +21,8 @@ my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
 my $listall_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events ORDER BY events.timestamp DESC LIMIT ?;");
 my $list_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events JOIN event_types ON events.type = event_types.id WHERE event_types.materialized_path LIKE (SELECT (materialized_path || '%') FROM event_types WHERE id=?) ORDER BY events.timestamp DESC LIMIT ?;");
 
+my @Subscribers;
+
 use Plack::Builder;
 my $app = builder {
     enable "+QS::Middleware::Auth", dbh => $dbh;
@@ -51,6 +53,11 @@ my $app = builder {
 
         my $ok = $insert_sth->execute(@args{@all_fields});
         if ($ok) {
+            my $event = to_json(\%args) . "\n";
+            for (@Subscribers) {
+                $_->write($event);
+            }
+
             return [201];
         }
         else {
@@ -103,6 +110,18 @@ my $app = builder {
         return [200, ['Content-Type', 'application/json'], [
             to_json(\@results),
         ]];
+    };
+
+    mount "/subscribe" => sub {
+        my $env = shift;
+        my $req = Plack::Request->new($env);
+        $env->{'plack.skip-deflater'} = 1;
+
+        return sub {
+            my $responder = shift;
+            my $writer = $responder->([200, ['Content-Type' => 'application/json', 'Cache-control' => 'private, max-age=0, no-store']]);
+            push @Subscribers, $writer;
+        };
     };
 };
 
