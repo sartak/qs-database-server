@@ -54,9 +54,14 @@ my $app = builder {
         my $ok = $insert_sth->execute(@args{@all_fields});
         if ($ok) {
             my $event = to_json(\%args) . "\n";
+            my @ok_subscribers;
             for (@Subscribers) {
-                $_->write($event);
+                eval { $_->write($event) };
+                if (!$@) {
+                    push @ok_subscribers, $_;
+                }
             }
+            @Subscribers = @ok_subscribers;
 
             return [201];
         }
