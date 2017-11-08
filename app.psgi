@@ -21,7 +21,7 @@ my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
 my $listall_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events ORDER BY events.timestamp DESC LIMIT ?;");
 my $list_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events JOIN event_types ON events.type = event_types.id WHERE event_types.materialized_path LIKE (SELECT (materialized_path || '%') FROM event_types WHERE id=?) ORDER BY events.timestamp DESC LIMIT ?;");
 
-my @Subscribers;
+my %Subscribers;
 
 use Plack::Builder;
 my $app = builder {
@@ -54,14 +54,18 @@ my $app = builder {
         my $ok = $insert_sth->execute(@args{@all_fields});
         if ($ok) {
             my $event = to_json(\%args) . "\n";
-            my @ok_subscribers;
-            for (@Subscribers) {
-                eval { $_->write($event) };
-                if (!$@) {
-                    push @ok_subscribers, $_;
+
+            my @types = (0);
+            for my $type (@types) {
+                my @ok_subscribers;
+                for (@{ $Subscribers{$type} }) {
+                    eval { $_->write($event) };
+                    if (!$@) {
+                        push @ok_subscribers, $_;
+                    }
                 }
+                @{ $Subscribers{$type} } = @ok_subscribers;
             }
-            @Subscribers = @ok_subscribers;
 
             return [201];
         }
@@ -122,10 +126,15 @@ my $app = builder {
         my $req = Plack::Request->new($env);
         $env->{'plack.skip-deflater'} = 1;
 
+        my @types = (0);
+
         return sub {
             my $responder = shift;
             my $writer = $responder->([200, ['Content-Type' => 'application/json', 'Cache-control' => 'private, max-age=0, no-store']]);
-            push @Subscribers, $writer;
+
+            for my $type (@types) {
+                push @{ $Subscribers{$type} }, $writer;
+            }
         };
     };
 };
