@@ -26,6 +26,8 @@ my %Subscribers;
 
 use Plack::Builder;
 my $app = builder {
+    enable "ReverseProxyPath";
+
     enable "+QS::Middleware::Auth", dbh => $dbh;
 
     mount "/static" => Plack::App::File->new(root => "static/")->to_app;
