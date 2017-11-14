@@ -81,7 +81,9 @@ my $app = builder {
         my @results = $database->events(type => scalar($req->param('type')));
 
         return [200, ['Content-Type', 'application/json'], [
-            encode_utf8(to_json(\@results)),
+            encode_utf8(to_json({
+                results => \@results,
+            })),
         ]];
     };
 
