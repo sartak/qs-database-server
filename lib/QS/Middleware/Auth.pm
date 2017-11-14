@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use parent qw/Plack::Middleware/;
 
-use Plack::Util::Accessor qw(dbh);
+use Plack::Util::Accessor qw(database);
 use Plack::Request;
 
 sub call {
@@ -23,15 +23,10 @@ sub authenticate {
     my $username = $req->header('X-QS-Username') || $req->param('user');
     my $password = $req->header('X-QS-Password') || $req->param('pass');
 
-    my $query = 'SELECT name FROM users WHERE name=? AND password=?;';
-    my $sth = $self->dbh->prepare($query);
-    $sth->execute($username, $password);
-
-    if (my ($name) = $sth->fetchrow_array) {
-        $env->{'psgix.qs_user'} = $name;
+    if ($self->database->authenticate($username, $password)) {
+        $env->{'psgix.qs_user'} = $username;
         return 1;
     }
-
     return;
 }
 

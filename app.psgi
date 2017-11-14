@@ -3,38 +3,52 @@ use warnings;
 use Twiggy::Server;
 use Plack::Request;
 use Plack::App::File;
-use DBI;
 use JSON 'to_json';
 use List::Util 'uniq';
+use QS::Database;
+use Encode 'encode_utf8';
 
 my $server = Twiggy::Server->new(
     port => ($ENV{QS_DATABASE_PORT} or die "QS_DATABASE_PORT env var required"),
 );
 
-my $db_file = ($ENV{QS_DATABASE_FILE} or die "QS_DATABASE_FILE env var required");
-my $dbh = DBI->connect("dbi:SQLite:dbname=$db_file", "", "", { RaiseError => 1 });
-
-my $insert_sth = $dbh->prepare("INSERT INTO events (timestamp, type, uri, metadata, isDiscrete, isStart, otherEndpoint, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
-my @all_fields = qw/timestamp type uri metadata isDiscrete isStart otherEndpoint duration/;
-my @required_fields = qw/timestamp type isDiscrete/;
-my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
-
-my $listall_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events ORDER BY events.timestamp DESC LIMIT ?;");
-my $list_sth = $dbh->prepare("SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events JOIN event_types ON events.type = event_types.id WHERE event_types.materialized_path LIKE (SELECT (materialized_path || '%') FROM event_types WHERE id=?) ORDER BY events.timestamp DESC LIMIT ?;");
+my $database = QS::Database->new(
+    file => ($ENV{QS_DATABASE_FILE} or die "QS_DATABASE_FILE env var required"),
+);
 
 my %Subscribers;
+
+sub notify_event {
+    my $event = shift;
+    my $json = encode_utf8(to_json($event)) . "\n";
+    my @types = (0, $event->{type});
+    for my $type (@types) {
+        my @ok_subscribers;
+        for (@{ $Subscribers{$type} }) {
+            eval { $_->write($json) };
+            if (!$@) {
+                push @ok_subscribers, $_;
+            }
+        }
+
+        @{ $Subscribers{$type} } = @ok_subscribers;
+    }
+}
 
 use Plack::Builder;
 my $app = builder {
     enable "ReverseProxyPath";
 
-    enable "+QS::Middleware::Auth", dbh => $dbh;
+    enable "+QS::Middleware::Auth", database => $database;
 
     mount "/static" => Plack::App::File->new(root => "static/")->to_app;
 
     mount "/add" => sub {
         my $request = Plack::Request->new(shift);
         my %args;
+
+        my @required_fields = qw/timestamp type isDiscrete/;
+        my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
 
         for my $key (@required_fields) {
             if (!defined($request->param($key))) {
@@ -46,30 +60,9 @@ my $app = builder {
             $args{$key} = $request->param($key);
         }
 
-        $args{timestamp} = time if $args{timestamp} eq 'now';
-
-        if (!$args{isDiscrete}) {
-            delete $args{isStart};
-            delete $args{otherEndpoint};
-            delete $args{duration};
-        }
-
-        my $ok = $insert_sth->execute(@args{@all_fields});
+        my $ok = $database->insert(%args);
         if ($ok) {
-            my $event = to_json(\%args) . "\n";
-
-            my @types = (0, $args{type});
-            for my $type (@types) {
-                my @ok_subscribers;
-                for (@{ $Subscribers{$type} }) {
-                    eval { $_->write($event) };
-                    if (!$@) {
-                        push @ok_subscribers, $_;
-                    }
-                }
-                @{ $Subscribers{$type} } = @ok_subscribers;
-            }
-
+            notify_event(\%args);
             return [201];
         }
         else {
@@ -78,49 +71,17 @@ my $app = builder {
     };
 
     mount "/types" => sub {
-        my @types = $dbh->selectall_array("SELECT id, parent, label, tags, materialized_path FROM event_types;");
-        my %tree;
-        my @parents = [0, \%tree];
-        while (@parents) {
-            my ($parent_id, $parent_tree) = @{ shift @parents };
-            my @children = grep { $_->[1] == $parent_id } @types;
-            @types = grep { $_->[1] != $parent_id } @types;
-
-            for (@children) {
-                my ($id, undef, $label, $tags, $materialized_path) = @$_;
-                my %subtree = (
-                    label => $label,
-                    tags => $tags,
-                    materialized_path => $materialized_path,
-                );
-                $parent_tree->{$id} = \%subtree;
-                push @parents, [$id, \%subtree];
-            }
-        }
-
         return [200, ['Content-Type', 'application/json'], [
-            to_json(\%tree),
+            encode_utf8(to_json($database->event_types)),
         ]];
     };
 
     mount "/events" => sub {
         my $req = Plack::Request->new(shift);
-        my $sth = $listall_sth;
-        if (my $type = $req->param('type')) {
-            $sth = $list_sth;
-            $sth->execute($type, 10);
-        }
-        else {
-            $sth->execute(10);
-        }
-
-        my @results;
-        while (my $row = $sth->fetchrow_hashref) {
-            push @results, $row;
-        }
+        my @results = $database->events(type => scalar($req->param('type')));
 
         return [200, ['Content-Type', 'application/json'], [
-            to_json(\@results),
+            encode_utf8(to_json(\@results)),
         ]];
     };
 
@@ -132,10 +93,7 @@ my $app = builder {
         my @types;
 
         for my $type ($req->param('type')) {
-            push @types, $type;
-
-            my @subtypes = map { $_->[0] } $dbh->selectall_array("SELECT child.id FROM event_types AS child JOIN event_types AS parent ON child.materialized_path LIKE parent.materialized_path || '%' WHERE parent.id=? AND child.id != parent.id;", {}, $type);
-            push @types, @subtypes;
+            push @types, $type, $database->subtypes($type);
         }
 
         if (!@types) {
