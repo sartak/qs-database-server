@@ -5,6 +5,7 @@ use Plack::Request;
 use Plack::App::File;
 use DBI;
 use JSON 'to_json';
+use List::Util 'uniq';
 
 my $server = Twiggy::Server->new(
     port => ($ENV{QS_DATABASE_PORT} or die "QS_DATABASE_PORT env var required"),
@@ -55,7 +56,7 @@ my $app = builder {
         if ($ok) {
             my $event = to_json(\%args) . "\n";
 
-            my @types = (0);
+            my @types = (0, $args{type});
             for my $type (@types) {
                 my @ok_subscribers;
                 for (@{ $Subscribers{$type} }) {
@@ -126,13 +127,24 @@ my $app = builder {
         my $req = Plack::Request->new($env);
         $env->{'plack.skip-deflater'} = 1;
 
-        my @types = (0);
+        my @types;
+
+        for my $type ($req->param('type')) {
+            push @types, $type;
+
+            my @subtypes = map { $_->[0] } $dbh->selectall_array("SELECT child.id FROM event_types AS child JOIN event_types AS parent ON child.materialized_path LIKE parent.materialized_path || '%' WHERE parent.id=? AND child.id != parent.id;", {}, $type);
+            push @types, @subtypes;
+        }
+
+        if (!@types) {
+            @types = (0);
+        }
 
         return sub {
             my $responder = shift;
             my $writer = $responder->([200, ['Content-Type' => 'application/json', 'Cache-control' => 'private, max-age=0, no-store']]);
 
-            for my $type (@types) {
+            for my $type (uniq @types) {
                 push @{ $Subscribers{$type} }, $writer;
             }
         };
