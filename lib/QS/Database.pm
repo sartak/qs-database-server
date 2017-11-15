@@ -39,17 +39,18 @@ sub insert {
     my $self = shift;
     my %args = @_;
 
-    my $sth = $self->_dbh->prepare("INSERT INTO events (timestamp, type, uri, metadata, isDiscrete, isStart, otherEndpoint, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
+    my $sth = $self->_dbh->prepare("INSERT INTO events (timestamp, type, uri, metadata, isDiscrete, isStart, otherEndpoint, duration) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL);");
 
     $args{timestamp} = time if $args{timestamp} eq 'now';
 
-    if (!$args{isDiscrete}) {
+    if ($args{isDiscrete}) {
         delete $args{isStart};
-        delete $args{otherEndpoint};
-        delete $args{duration};
+    }
+    else {
+        $args{isStart} = 1;
     }
 
-    $sth->execute(@args{qw/timestamp type uri metadata isDiscrete isStart otherEndpoint duration/});
+    $sth->execute(@args{qw/timestamp type uri metadata isDiscrete isStart/});
 
     return $self->_dbh->sqlite_last_insert_rowid;
 }

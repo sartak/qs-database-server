@@ -52,7 +52,7 @@ my $app = builder {
         my %args;
 
         my @required_fields = qw/timestamp type isDiscrete/;
-        my @optional_fields = qw/uri metadata isStart otherEndpoint duration/;
+        my @optional_fields = qw/uri metadata/;
 
         for my $key (@required_fields) {
             if (!defined($request->param($key))) {
