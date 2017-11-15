@@ -50,6 +50,8 @@ sub insert {
     }
 
     $sth->execute(@args{qw/timestamp type uri metadata isDiscrete isStart otherEndpoint duration/});
+
+    return $self->_dbh->sqlite_last_insert_rowid;
 }
 
 sub event_types {
@@ -89,6 +91,7 @@ sub events {
     my $self = shift;
     my %args = (
         count  => 1000,
+        id     => undef,
         type   => undef,
         before => undef,
         fields => [],
@@ -112,6 +115,11 @@ sub events {
     if ($args{before}) {
         push @where, "events.timestamp < ?";
         push @bind, $args{before};
+    }
+
+    if ($args{id}) {
+        push @where, "events.id = ?";
+        push @bind, $args{id};
     }
 
     $query .= " WHERE " . join(" AND ", @where)

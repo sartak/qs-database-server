@@ -64,13 +64,16 @@ my $app = builder {
             $args{$key} = $request->param($key);
         }
 
-        my $ok = $database->insert(%args);
-        if ($ok) {
-            notify_event(\%args);
-            return [201];
+        my $id = $database->insert(%args);
+        if ($id) {
+            my ($event) = $database->events(id => $id);
+            notify_event($event);
+            return [201, ['Content-Type', 'application/json'], [
+                encode_utf8(to_json($event)),
+            ]];
         }
         else {
-            return [400];
+            return [400, ['Content-Type', 'text/plain'], ['Bad Request']];
         }
     };
 
