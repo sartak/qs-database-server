@@ -78,7 +78,10 @@ my $app = builder {
 
     mount "/events" => sub {
         my $req = Plack::Request->new(shift);
-        my @results = $database->events(type => scalar($req->param('type')));
+        my @results = $database->events(
+            type => scalar($req->param('type')),
+            before => scalar($req->param('before')),
+        );
 
         return [200, ['Content-Type', 'application/json'], [
             encode_utf8(to_json({

@@ -88,7 +88,9 @@ sub subtypes {
 sub events {
     my $self = shift;
     my %args = (
-        count => 1000,
+        count  => 1000,
+        type   => undef,
+        before => undef,
         @_,
     );
 
@@ -101,6 +103,11 @@ sub events {
         $query .= " JOIN event_types ON events.type = event_types.id ";
         push @where, "event_types.materialized_path LIKE (SELECT (materialized_path || '%') FROM event_types WHERE id=?)";
         push @bind, $args{type};
+    }
+
+    if ($args{before}) {
+        push @where, "events.timestamp < ?";
+        push @bind, $args{before};
     }
 
     $query .= " WHERE " . join(" AND ", @where)
