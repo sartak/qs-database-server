@@ -99,7 +99,7 @@ sub events {
     my @where;
 
     my @fields = grep { /^[a-zA-Z_]+$/ } map { split /\s*,\s*/ } @{ $args{fields} };
-    @fields = ['id', 'timestamp', 'type', 'uri', 'metadata', 'isDiscrete', 'isStart', 'otherEndpoint', 'duration'] unless @fields;
+    @fields = ('id', 'timestamp', 'type', 'uri', 'metadata', 'isDiscrete', 'isStart', 'otherEndpoint', 'duration') unless @fields;
 
     my $query = "SELECT ".(join ", ", map { "events.$_" } @fields)." FROM events";
 
