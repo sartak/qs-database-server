@@ -42,6 +42,9 @@ my $app = builder {
 
     enable "+QS::Middleware::Auth", database => $database;
 
+    enable "Deflater",
+        content_type => ['text/css','text/html','text/javascript','application/javascript','application/json'];
+
     mount "/static" => Plack::App::File->new(root => "static/")->to_app;
 
     mount "/add" => sub {
