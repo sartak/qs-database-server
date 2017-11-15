@@ -77,6 +77,36 @@ my $app = builder {
         }
     };
 
+    mount "/finish" => sub {
+        my $request = Plack::Request->new(shift);
+        my %args;
+
+        my @required_fields = qw/timestamp otherEndpoint/;
+        my @optional_fields = qw/type uri metadata duration/;
+
+        for my $key (@required_fields) {
+            if (!defined($request->param($key))) {
+                return [400, ['Content-Type', 'text/plain'], ["Field '$key' required"]];
+            }
+        }
+
+        for my $key (@required_fields, @optional_fields) {
+            $args{$key} = $request->param($key);
+        }
+
+        my $id = $database->finish_event(%args);
+        if ($id) {
+            my ($event) = $database->events(id => $id);
+            notify_event($event);
+            return [201, ['Content-Type', 'application/json'], [
+                encode_utf8(to_json($event)),
+            ]];
+        }
+        else {
+            return [400, ['Content-Type', 'text/plain'], ['Bad Request']];
+        }
+    };
+
     mount "/types" => sub {
         return [200, ['Content-Type', 'application/json'], [
             encode_utf8(to_json($database->event_types)),

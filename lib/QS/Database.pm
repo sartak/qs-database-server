@@ -1,4 +1,5 @@
 package QS::Database;
+use 5.14.0;
 use Moose;
 use DBI;
 
@@ -53,6 +54,44 @@ sub insert {
     $sth->execute(@args{qw/timestamp type uri metadata isDiscrete isStart/});
 
     return $self->_dbh->sqlite_last_insert_rowid;
+}
+
+sub finish_event {
+    my $self = shift;
+    my %args = @_;
+
+    $self->_dbh->begin_work;
+
+    my ($start_timestamp, $start_type, $existing_endpoint) = $self->_dbh->selectrow_array("SELECT timestamp, type, otherEndpoint FROM events WHERE id=?", {}, $args{otherEndpoint});
+
+    if ($existing_endpoint) {
+        $self->_dbh->rollback;
+        return 0;
+    }
+
+    $args{timestamp} = time if $args{timestamp} eq 'now';
+    $args{isDiscrete} = 0;
+    $args{isStart} = 0;
+    $args{duration} //= $args{timestamp} - $start_timestamp;
+    $args{type} //= $start_type;
+
+    $self->_dbh->do(
+        "INSERT INTO events (timestamp, type, uri, metadata, isDiscrete, isStart, otherEndpoint, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+        {},
+        @args{qw/timestamp type uri metadata isDiscrete isStart otherEndpoint duration/}
+    );
+
+    my $id = $self->_dbh->sqlite_last_insert_rowid;
+
+    $self->_dbh->do(
+        "UPDATE events SET isDiscrete=0, isStart=1, otherEndpoint=?, duration=? WHERE id=?",
+        {},
+        $id, $args{duration}, $args{otherEndpoint},
+    );
+
+    $self->_dbh->commit;
+
+    return $id;
 }
 
 sub event_types {
