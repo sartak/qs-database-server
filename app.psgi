@@ -90,6 +90,7 @@ my $app = builder {
 
         if (@results) {
             my $next = $req->uri;
+            $next->scheme('https');
 
             my $params = $req->parameters->clone;
             $params->set(before => $results[-1]->{timestamp});
