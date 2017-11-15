@@ -82,6 +82,7 @@ my $app = builder {
         my @results = $database->events(
             type => scalar($req->param('type')),
             before => scalar($req->param('before')),
+            fields => [$req->parameters->get_all('fields')],
         );
 
         my %response = (

@@ -91,13 +91,17 @@ sub events {
         count  => 1000,
         type   => undef,
         before => undef,
+        fields => [],
         @_,
     );
 
     my @bind;
     my @where;
 
-    my $query = "SELECT events.id, events.timestamp, events.type, events.uri, events.metadata, events.isDiscrete, events.isStart, events.otherEndpoint, events.duration FROM events";
+    my @fields = grep { /^[a-zA-Z_]+$/ } map { split /\s*,\s*/ } @{ $args{fields} };
+    @fields = ['id', 'timestamp', 'type', 'uri', 'metadata', 'isDiscrete', 'isStart', 'otherEndpoint', 'duration'] unless @fields;
+
+    my $query = "SELECT ".(join ", ", map { "events.$_" } @fields)." FROM events";
 
     if ($args{type}) {
         $query .= " JOIN event_types ON events.type = event_types.id ";
