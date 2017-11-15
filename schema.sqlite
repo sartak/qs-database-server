@@ -10,6 +10,7 @@ CREATE TABLE events (
     otherEndpoint INTEGER,
     duration INTEGER
 );
+CREATE INDEX events_timestamp ON events (timestamp DESC);
 
 CREATE TABLE event_types (
     id INTEGER PRIMARY KEY,
