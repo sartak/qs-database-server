@@ -7,6 +7,7 @@ use JSON 'to_json';
 use List::Util 'uniq';
 use QS::Database;
 use Encode 'encode_utf8';
+use WWW::Form::UrlEncoded qw/build_urlencoded/;
 
 my $server = Twiggy::Server->new(
     port => ($ENV{QS_DATABASE_PORT} or die "QS_DATABASE_PORT env var required"),
@@ -83,10 +84,22 @@ my $app = builder {
             before => scalar($req->param('before')),
         );
 
+        my %response = (
+            results => \@results,
+        );
+
+        if (@results) {
+            my $next = $req->uri;
+
+            my $params = $req->parameters->clone;
+            $params->set(before => $results[-1]->{timestamp});
+            $params->remove('_');
+            $next->query(build_urlencoded($params->flatten));
+            $response{nextPage} = "$next";
+        }
+
         return [200, ['Content-Type', 'application/json'], [
-            encode_utf8(to_json({
-                results => \@results,
-            })),
+            encode_utf8(to_json(\%response)),
         ]];
     };
 
